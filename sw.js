@@ -1,16 +1,17 @@
-const CACHE_NAME = 'guajira-offline-v4';
+const CACHE_NAME = 'guajira-offline-v5';
 const urlsToCache = [
   '/',
   '/index.html',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'
 ];
 
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(urlsToCache))
+      .then(cache => cache.addAll(urlsToCache).catch(err => console.warn('Cache addAll warning:', err)))
   );
   self.skipWaiting();
 });
@@ -29,10 +30,17 @@ self.addEventListener('activate', event => {
 });
 
 self.addEventListener('fetch', event => {
+  // Solo manejar peticiones GET. Las peticiones POST a Supabase o Storage se procesan en la red
+  if (event.request.method !== 'GET') return;
+
+  // No interceptar peticiones de la API REST o Storage de Supabase en cache estático
+  if (event.request.url.includes('supabase.co')) return;
+
   event.respondWith(
     caches.match(event.request)
       .then(response => {
         return response || fetch(event.request);
       })
+      .catch(() => caches.match('/index.html'))
   );
 });
