@@ -827,8 +827,14 @@
 
       <!-- BOTONES FLOTANTES SOBRE EL MAPA -->
       <div class="map-floating-bar">
+        <button class="map-btn" id="btn-windpeshi" onclick="centrarEnWindpeshi()" title="Ir al Proyecto Windpeshi (La Guajira)">
+          ⚡
+        </button>
         <button class="map-btn" id="btn-locate" onclick="obtenerUbicacionGPS()" title="Centrar en mi ubicación GPS">
           🎯
+        </button>
+        <button class="map-btn" id="btn-offline" onclick="descargarZonaOffline()" title="Descargar mapa de La Guajira para uso sin señal celular">
+          📥
         </button>
         <button class="map-btn" id="btn-fullscreen" onclick="togglePantallaCompleta()" title="Pantalla completa">
           ⛶
@@ -1028,79 +1034,24 @@
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     document.getElementById('fecha_evento').value = now.toISOString().slice(0,16);
 
-    // --- CONVERSIÓN QUADKEY PARA BING MAPS ---
-    function tileXYToQuadKey(x, y, z) {
-      let quadKey = '';
-      for (let i = z; i > 0; i--) {
-        let digit = 0;
-        const mask = 1 << (i - 1);
-        if ((x & mask) !== 0) digit += 1;
-        if ((y & mask) !== 0) digit += 2;
-        quadKey += digit;
-      }
-      return quadKey;
-    }
-
-    const BingLayer = L.TileLayer.extend({
-      getTileUrl: function(coords) {
-        const maxCoord = Math.pow(2, coords.z);
-        const wrappedX = ((coords.x % maxCoord) + maxCoord) % maxCoord;
-        const quadKey = tileXYToQuadKey(wrappedX, coords.y, coords.z);
-        const subdomains = this.options.subdomains || ['0', '1', '2', '3'];
-        const s = subdomains[Math.abs(coords.x + coords.y) % subdomains.length];
-        return L.Util.template(this._url, {
-          s: s,
-          quadkey: quadKey
-        });
-      }
-    });
-
-    function createBingLayer(type, attribution) {
-      return new BingLayer(`https://ecn.t{s}.tiles.virtualearth.net/tiles/${type}{quadkey}.jpeg?g=1`, {
-        maxZoom: 20,
-        maxNativeZoom: 18,
-        subdomains: ['0', '1', '2', '3'],
-        attribution: attribution || '© Microsoft Bing Maps'
-      });
-    }
-
-    // --- CAPAS BASE LEAFLET ---
-    // 1. OpenStreetMap
-    const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '© OpenStreetMap'
-    });
-
-    // 2. Bing Maps (Satélite e Híbrido)
-    const bingAerial = createBingLayer('a', '© Microsoft Bing Maps');
-    const bingHybrid = createBingLayer('h', '© Microsoft Bing Maps');
-
-    // 3. Google Maps (Satélite Híbrido con vías y etiquetas)
-    const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+    // --- CAPAS BASE LEAFLET (SOLO SATÉLITE E HÍBRIDO) ---
+    // 1. Satélite Híbrido (Imágenes satelitales con red vial, trochas y nombres de sitios)
+    const sateliteHibrido = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
       maxZoom: 20,
       attribution: '© Google Maps'
     });
 
-    // 4. Esri (Satélite e Híbrido con capas de vías + etiquetas)
-    const esriImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      attribution: '© Esri'
+    // 2. Satélite (Fotografía satelital pura de alta resolución)
+    const satelitePuro = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps'
     });
-    const esriTransportation = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      zIndex: 3
-    });
-    const esriLabels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 19,
-      zIndex: 4
-    });
-    const esriHybrid = L.layerGroup([esriImagery, esriTransportation, esriLabels]);
 
-    // Inicializar mapa (por defecto Bing Híbrido)
+    // Inicializar mapa (por defecto Satélite Híbrido centrado en Windpeshi, La Guajira)
     const map = L.map('map', { 
       center: [11.38, -72.22], 
       zoom: 11, 
-      layers: [bingHybrid],
+      layers: [sateliteHibrido],
       zoomControl: false,
       preferCanvas: true
     });
@@ -1117,12 +1068,8 @@
 
     // --- CONTROL DE CAPAS BASE Y SUPERPUESTAS (OVERLAYS) ---
     const baseLayers = {
-      "Bing Híbrido": bingHybrid,
-      "Bing Satélite": bingAerial,
-      "Google Híbrido": googleHybrid,
-      "Esri Híbrido (Vías + Etiquetas)": esriHybrid,
-      "Esri Satélite": esriImagery,
-      "Mapa Calles (OSM)": osmLayer
+      "Satélite Híbrido": sateliteHibrido,
+      "Satélite": satelitePuro
     };
     const overlayLayers = {
       "Torres": towerLayer,
@@ -1184,7 +1131,22 @@
       showToast(`Punto fijado: ${nombre}`, 'success', 2200);
     }
 
-    // Geolocalización automática al inicio
+    // Centrar vista en el polígono y torres de Windpeshi (La Guajira)
+    function centrarEnWindpeshi() {
+      clearCommunityHighlight();
+      if (features && features.length > 0) {
+        const bounds = L.latLngBounds(features.map(f => [f.coordinates[1], f.coordinates[0]]));
+        if (bounds.isValid()) {
+          map.fitBounds(bounds.pad(0.12));
+          showToast('Vista centrada en Proyecto Windpeshi (La Guajira)', 'info', 2000);
+          return;
+        }
+      }
+      map.setView([11.38, -72.22], 11);
+      showToast('Vista centrada en Proyecto Windpeshi (La Guajira)', 'info', 2000);
+    }
+
+    // Geolocalización GPS inteligente: no desplaza la vista si el usuario está fuera de La Guajira
     function obtenerUbicacionGPS() {
       if (!navigator.geolocation) {
         showToast('Geolocalización no soportada en este navegador', 'warning');
@@ -1195,20 +1157,100 @@
         (pos) => {
           const lat = pos.coords.latitude;
           const lng = pos.coords.longitude;
-          map.setView([lat, lng], 15);
           updateMarker(lat, lng);
-          showToast('Ubicación GPS establecida', 'success');
+
+          // Verificar si las coordenadas están dentro o cerca de La Guajira
+          const enGuajira = (lat >= 10.5 && lat <= 12.8 && lng >= -73.6 && lng <= -71.0);
+          if (enGuajira) {
+            map.setView([lat, lng], 15);
+            showToast('Ubicación GPS establecida en campo (La Guajira)', 'success');
+          } else {
+            // Usuario en Bogotá u otra ciudad: registra coordenadas pero mantiene la vista del proyecto
+            showToast(`GPS: ${lat.toFixed(3)}, ${lng.toFixed(3)}. Vista mantenida en Windpeshi.`, 'info', 4000);
+            centrarEnWindpeshi();
+          }
         },
         (err) => {
           console.warn('GPS error:', err);
           showToast('No se pudo obtener GPS. Toca el mapa directamente.', 'warning');
           if (!currentMarker) updateMarker(11.38, -72.22);
+          centrarEnWindpeshi();
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
     }
     // Intentar ubicar al cargar
     obtenerUbicacionGPS();
+
+    // Descargar cuadrícula satelital de Windpeshi para uso 100% offline sin red celular
+    async function descargarZonaOffline() {
+      if (!navigator.onLine) {
+        showToast('Necesitas conexión a internet para descargar el mapa offline', 'warning', 3500);
+        return;
+      }
+
+      const btn = document.getElementById('btn-offline');
+      if (btn) btn.disabled = true;
+
+      showToast('Iniciando descarga de mapa de Windpeshi para uso sin señal...', 'info', 3000);
+
+      // Bounding box del proyecto Windpeshi en La Guajira (Línea de transmisión a Parque)
+      const minLat = 11.18, maxLat = 11.66;
+      const minLng = -72.30, maxLng = -71.98;
+
+      function lon2tile(lon, zoom) { return Math.floor((lon + 180) / 360 * Math.pow(2, zoom)); }
+      function lat2tile(lat, zoom) { return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom)); }
+
+      const tileUrls = [];
+      // Zooms 10 al 13 cubren perfectamente desde visión regional hasta detalle de torres y accesos
+      for (let z = 10; z <= 13; z++) {
+        const xMin = lon2tile(minLng, z);
+        const xMax = lon2tile(maxLng, z);
+        const yMin = lat2tile(maxLat, z);
+        const yMax = lat2tile(minLat, z);
+        for (let x = xMin; x <= xMax; x++) {
+          for (let y = yMin; y <= yMax; y++) {
+            tileUrls.push(`https://mt1.google.com/vt/lyrs=y&x=${x}&y=${y}&z=${z}`);
+            tileUrls.push(`https://mt1.google.com/vt/lyrs=s&x=${x}&y=${y}&z=${z}`);
+          }
+        }
+      }
+
+      try {
+        const cache = await caches.open('guajira-tiles-v1');
+        let loaded = 0;
+        const total = tileUrls.length;
+        const toastContainer = document.getElementById('toast-container');
+        const progressToast = document.createElement('div');
+        progressToast.className = 'toast info';
+        progressToast.innerText = `Descargando mapa offline: 0 / ${total} mosaicos`;
+        toastContainer.appendChild(progressToast);
+
+        const batchSize = 12;
+        for (let i = 0; i < total; i += batchSize) {
+          const batch = tileUrls.slice(i, i + batchSize);
+          await Promise.all(batch.map(async (url) => {
+            try {
+              const cached = await cache.match(url);
+              if (!cached) {
+                const res = await fetch(url, { mode: 'cors' });
+                if (res.ok) await cache.put(url, res);
+              }
+            } catch (e) {}
+            loaded++;
+          }));
+          progressToast.innerText = `Descargando mapa offline: ${Math.round((loaded / total) * 100)}% (${loaded}/${total})`;
+        }
+
+        setTimeout(() => progressToast.remove(), 1000);
+        showToast('✅ ¡Zona Windpeshi guardada! Mapa listo para usar sin señal de celular.', 'success', 5000);
+      } catch (err) {
+        console.error('Error al guardar zona offline:', err);
+        showToast('Error al descargar mapa offline: ' + err.message, 'warning', 4000);
+      } finally {
+        if (btn) btn.disabled = false;
+      }
+    }
 
     // Pantalla completa del mapa
     function togglePantallaCompleta() {
