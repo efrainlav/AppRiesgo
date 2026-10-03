@@ -13,6 +13,9 @@
   <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   
+  <!-- JSZip para descompresión de capas KMZ -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
   <!-- Supabase JS -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
@@ -587,6 +590,203 @@
       border-radius: 6px;
       cursor: pointer;
     }
+
+    /* ========================================================
+       ESTILOS DE CAPAS SIG (KML / KMZ) Y ELEMENTOS GEO
+       ======================================================== */
+    /* Íconos SVG personalizados */
+    .tower-logo {
+      width: 26px;
+      height: 26px;
+      display: block;
+      filter: drop-shadow(0 1px 2px rgba(23, 37, 31, 0.5));
+      transition: transform 0.2s ease, filter 0.2s ease;
+    }
+
+    .aeros-logo {
+      width: 36px;
+      height: 24px;
+      display: block;
+      object-fit: contain;
+      filter: drop-shadow(0 1px 2px rgba(23, 37, 31, 0.5));
+    }
+
+    .community-logo {
+      width: 30px;
+      height: 30px;
+      display: block;
+      filter: drop-shadow(0 1px 2px rgba(23, 37, 31, 0.5));
+      transition: transform 0.2s ease;
+    }
+
+    /* Resaltado interactivo cian (#00bcd4) entre Comunidades y Torres */
+    .tower-logo.is-community-related {
+      outline: 3px solid #00bcd4;
+      outline-offset: 2px;
+      border-radius: 4px;
+      box-shadow: 0 0 12px #00bcd4;
+      transform: scale(1.22);
+    }
+
+    .community-logo.is-selected {
+      outline: 3px solid #00bcd4;
+      outline-offset: 2px;
+      border-radius: 6px;
+      box-shadow: 0 0 14px #00bcd4;
+      transform: scale(1.25);
+    }
+
+    /* Puntos circulares CSS para Ocupación de Cauce */
+    .cauce-point {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      border: 2px solid #ffffff;
+      box-shadow: 0 1px 4px rgba(23, 37, 31, 0.6);
+      background: #3278b7;
+      box-sizing: border-box;
+      transition: transform 0.2s ease;
+    }
+
+    .cauce-point.cauce-line-point {
+      background: #3278b7;
+    }
+
+    .cauce-point.cauce-park-point {
+      background: #2563eb;
+    }
+
+    /* Tooltips permanentes con halo blanco legible sobre satélite */
+    .leaflet-tooltip.tower-name-label {
+      padding: 0;
+      border: 0;
+      color: #1e513f;
+      background: transparent;
+      box-shadow: none;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.2;
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 4px #fff;
+      pointer-events: none;
+    }
+    .leaflet-tooltip.tower-name-label::before { display: none; }
+
+    .leaflet-tooltip.asset-name-label {
+      padding: 0;
+      border: 0;
+      color: #202b2b;
+      background: transparent;
+      box-shadow: none;
+      font-size: 10px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 3px #fff;
+      pointer-events: none;
+    }
+    .leaflet-tooltip.asset-name-label::before { display: none; }
+
+    .leaflet-tooltip.community-name-label {
+      padding: 0;
+      border: 0;
+      color: #704625;
+      background: transparent;
+      box-shadow: none;
+      font-size: 11px;
+      font-weight: 800;
+      line-height: 1.2;
+      text-shadow: -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff, 1px 1px 0 #fff, 0 0 4px #fff;
+      pointer-events: none;
+    }
+    .leaflet-tooltip.community-name-label::before { display: none; }
+
+    /* Popups estructurados para capas SIG */
+    .feature-popup {
+      min-width: 240px;
+      max-width: 320px;
+      max-height: 290px;
+      overflow-y: auto;
+      padding-right: 4px;
+      font-family: inherit;
+    }
+
+    .feature-popup h3 {
+      margin: 3px 0 6px;
+      color: #0f172a;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: -0.2px;
+    }
+
+    .popup-layer {
+      color: var(--primary);
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .community-related-summary {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0369a1;
+      background: #e0f2fe;
+      border: 1px solid #bae6fd;
+      padding: 3px 8px;
+      border-radius: 6px;
+      margin: 3px 0 8px 0;
+      display: inline-block;
+    }
+
+    .popup-dl {
+      margin: 0;
+      padding: 0;
+    }
+
+    .popup-row {
+      display: grid;
+      grid-template-columns: minmax(85px, 42%) 1fr;
+      gap: 8px;
+      padding: 5px 0;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .popup-row dt {
+      color: var(--text-muted);
+      font-weight: 600;
+      overflow-wrap: anywhere;
+    }
+
+    .popup-row dd {
+      margin: 0;
+      font-weight: 600;
+      color: var(--text);
+      overflow-wrap: anywhere;
+    }
+
+    .popup-action-btn {
+      margin: 6px 0 8px 0;
+      width: 100%;
+      background: #f1f5f9;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--primary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      transition: all 0.2s ease;
+    }
+
+    .popup-action-btn:hover {
+      background: var(--primary-light);
+      border-color: #7dd3fc;
+      transform: translateY(-1px);
+    }
   </style>
 </head>
 <body>
@@ -828,23 +1028,121 @@
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     document.getElementById('fecha_evento').value = now.toISOString().slice(0,16);
 
+    // --- CONVERSIÓN QUADKEY PARA BING MAPS ---
+    function tileXYToQuadKey(x, y, z) {
+      let quadKey = '';
+      for (let i = z; i > 0; i--) {
+        let digit = 0;
+        const mask = 1 << (i - 1);
+        if ((x & mask) !== 0) digit += 1;
+        if ((y & mask) !== 0) digit += 2;
+        quadKey += digit;
+      }
+      return quadKey;
+    }
+
+    const BingLayer = L.TileLayer.extend({
+      getTileUrl: function(coords) {
+        const maxCoord = Math.pow(2, coords.z);
+        const wrappedX = ((coords.x % maxCoord) + maxCoord) % maxCoord;
+        const quadKey = tileXYToQuadKey(wrappedX, coords.y, coords.z);
+        const subdomains = this.options.subdomains || ['0', '1', '2', '3'];
+        const s = subdomains[Math.abs(coords.x + coords.y) % subdomains.length];
+        return L.Util.template(this._url, {
+          s: s,
+          quadkey: quadKey
+        });
+      }
+    });
+
+    function createBingLayer(type, attribution) {
+      return new BingLayer(`https://ecn.t{s}.tiles.virtualearth.net/tiles/${type}{quadkey}.jpeg?g=1`, {
+        maxZoom: 20,
+        maxNativeZoom: 18,
+        subdomains: ['0', '1', '2', '3'],
+        attribution: attribution || '© Microsoft Bing Maps'
+      });
+    }
+
+    // --- CAPAS BASE LEAFLET ---
+    // 1. OpenStreetMap
     const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
       attribution: '© OpenStreetMap'
     });
-    const sateliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+
+    // 2. Bing Maps (Satélite e Híbrido)
+    const bingAerial = createBingLayer('a', '© Microsoft Bing Maps');
+    const bingHybrid = createBingLayer('h', '© Microsoft Bing Maps');
+
+    // 3. Google Maps (Satélite Híbrido con vías y etiquetas)
+    const googleHybrid = L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', {
+      maxZoom: 20,
+      attribution: '© Google Maps'
+    });
+
+    // 4. Esri (Satélite e Híbrido con capas de vías + etiquetas)
+    const esriImagery = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
       maxZoom: 19,
       attribution: '© Esri'
     });
+    const esriTransportation = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Transportation/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      zIndex: 3
+    });
+    const esriLabels = L.tileLayer('https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 19,
+      zIndex: 4
+    });
+    const esriHybrid = L.layerGroup([esriImagery, esriTransportation, esriLabels]);
 
+    // Inicializar mapa (por defecto Bing Híbrido)
     const map = L.map('map', { 
-      center: [11.54, -72.90], 
-      zoom: 10, 
-      layers: [osmLayer],
-      zoomControl: false
+      center: [11.38, -72.22], 
+      zoom: 11, 
+      layers: [bingHybrid],
+      zoomControl: false,
+      preferCanvas: true
     });
     L.control.zoom({ position: 'bottomright' }).addTo(map);
-    L.control.layers({ "Mapa Calles": osmLayer, "Satélite": sateliteLayer }, null, { position: 'topleft' }).addTo(map);
+
+    // --- GRUPOS DE CAPAS SIG VECTORIALES ---
+    const towerLayer = L.featureGroup().addTo(map);
+    const aerosLayer = L.featureGroup().addTo(map);
+    const areaLayer = L.featureGroup().addTo(map);
+    const cauceLineaLayer = L.featureGroup().addTo(map);
+    const cauceParqueLayer = L.featureGroup().addTo(map);
+    const communitiesLayer = L.featureGroup().addTo(map);
+    let cloudMarkersLayer = L.layerGroup().addTo(map);
+
+    // --- CONTROL DE CAPAS BASE Y SUPERPUESTAS (OVERLAYS) ---
+    const baseLayers = {
+      "Bing Híbrido": bingHybrid,
+      "Bing Satélite": bingAerial,
+      "Google Híbrido": googleHybrid,
+      "Esri Híbrido (Vías + Etiquetas)": esriHybrid,
+      "Esri Satélite": esriImagery,
+      "Mapa Calles (OSM)": osmLayer
+    };
+    const overlayLayers = {
+      "Torres": towerLayer,
+      "Aerogeneradores": aerosLayer,
+      "Área del parque": areaLayer,
+      "Ocupación de cauce · Línea": cauceLineaLayer,
+      "Ocupación de cauce · Parque": cauceParqueLayer,
+      "Comunidades": communitiesLayer,
+      "Reportes de Campo": cloudMarkersLayer
+    };
+    L.control.layers(baseLayers, overlayLayers, { position: 'topleft', collapsed: true }).addTo(map);
+
+    // Popups y estado de capas SIG
+    const featurePopup = L.popup({ maxWidth: 360, maxHeight: 340, autoClose: true, closeOnClick: true });
+    let features = [];
+    let aerosFeatures = [];
+    let cauceLineaFeatures = [];
+    let cauceParqueFeatures = [];
+    let communityFeatures = [];
+    let selectedCommunityFeature = null;
 
     let currentMarker = null;
 
@@ -871,8 +1169,20 @@
     }
 
     map.on('click', (e) => {
+      clearCommunityHighlight();
       updateMarker(e.latlng.lat, e.latlng.lng);
     });
+
+    // Fijar punto para el formulario desde cualquier popup de capa SIG
+    function seleccionarPuntoDesdeCapa(lat, lng, nombre) {
+      updateMarker(lat, lng);
+      map.setView([lat, lng], Math.max(map.getZoom(), 15));
+      const projInput = document.getElementById('proyecto');
+      if (projInput && (!projInput.value || projInput.value.trim() === '')) {
+        projInput.value = nombre;
+      }
+      showToast(`Punto fijado: ${nombre}`, 'success', 2200);
+    }
 
     // Geolocalización automática al inicio
     function obtenerUbicacionGPS() {
@@ -892,7 +1202,7 @@
         (err) => {
           console.warn('GPS error:', err);
           showToast('No se pudo obtener GPS. Toca el mapa directamente.', 'warning');
-          if (!currentMarker) updateMarker(11.54, -72.90);
+          if (!currentMarker) updateMarker(11.38, -72.22);
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
       );
@@ -909,8 +1219,343 @@
       setTimeout(() => map.invalidateSize(), 250);
     }
 
-    // --- CARGAR PUNTOS EXISTENTES DESDE SUPABASE ---
-    let cloudMarkersLayer = L.layerGroup().addTo(map);
+    // --- PARSEO Y PROCESAMIENTO SIG CLIENT-SIDE ---
+    function escapeHtml(value) {
+      return (value || '').toString().replace(/[&<>"']/g, (c) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+      }[c]));
+    }
+
+    function parseKml(xml, path) {
+      const parser = new DOMParser();
+      const parsed = parser.parseFromString(xml, 'application/xml');
+      if (parsed.querySelector('parsererror')) {
+        throw new Error(`${path} no tiene un formato KML válido.`);
+      }
+      return parsed;
+    }
+
+    function parseCoordinates(coordinatesNode) {
+      return (coordinatesNode?.textContent || '').trim().split(/\s+/).map((coordinate) => {
+        const [longitude, latitude] = coordinate.split(',').map(Number);
+        return Number.isFinite(longitude) && Number.isFinite(latitude) ? [latitude, longitude] : null;
+      }).filter(Boolean);
+    }
+
+    function parseAttributes(description) {
+      if (!description) return [];
+      const doc = new DOMParser().parseFromString(description, 'text/html');
+      return Array.from(doc.querySelectorAll('tr')).map((row) => {
+        const cells = Array.from(row.children)
+          .filter((cell) => cell.tagName === 'TD')
+          .map((cell) => cell.textContent.trim());
+        return cells.length >= 2 && cells[0] ? [cells[0], cells.slice(1).join(' ')] : null;
+      }).filter(Boolean);
+    }
+
+    function readPlacemark(placemark, index) {
+      const coordinates = placemark.getElementsByTagNameNS('*', 'coordinates')[0]?.textContent.trim().split(/[\s,]+/).map(Number);
+      if (!coordinates || coordinates.length < 2 || !Number.isFinite(coordinates[0]) || !Number.isFinite(coordinates[1])) return null;
+      const name = placemark.getElementsByTagNameNS('*', 'name')[0]?.textContent.trim() || `Punto ${index + 1}`;
+      const description = placemark.getElementsByTagNameNS('*', 'description')[0]?.textContent || '';
+      return {
+        id: placemark.getAttribute('id') || `feat-${index}`,
+        index,
+        name,
+        coordinates,
+        attributes: parseAttributes(description)
+      };
+    }
+
+    function makeTowerIcon() {
+      return L.divIcon({
+        className: '',
+        html: '<img class="tower-logo" src="./svg/transmission-tower.svg" alt="">',
+        iconSize: [26, 26],
+        iconAnchor: [13, 13]
+      });
+    }
+
+    function updateMapLabels() {
+      const showLabels = map.getZoom() >= 12;
+      const allFeatures = [
+        ...features,
+        ...aerosFeatures,
+        ...cauceLineaFeatures,
+        ...cauceParqueFeatures,
+        ...communityFeatures
+      ];
+      allFeatures.forEach((feat) => {
+        if (!feat.marker) return;
+        if (showLabels) {
+          feat.marker.openTooltip();
+        } else {
+          feat.marker.closeTooltip();
+        }
+      });
+    }
+    map.on('zoomend', updateMapLabels);
+
+    function normalizeCommunity(value) {
+      if (!value) return '';
+      const name = value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      const aliases = {
+        TOLOIRA: 'CASAAUTORIDADTOLOIRA',
+        JAIPACHON: 'JAIPAICHON',
+        MASHUAMANAWANE: 'MAASHUMANAWANE'
+      };
+      return aliases[name] || name;
+    }
+
+    function isUpperSanLuis(community) {
+      if (!/san\s*luis/i.test(community.name || '')) return false;
+      return (community.coordinates && community.coordinates[1] > 11.5) ||
+        community.attributes?.some(([k, v]) => k.toLowerCase() === 'parque' && /v[ií]a/i.test(v));
+    }
+
+    function clearCommunityHighlight() {
+      features.forEach((tower) => {
+        tower.marker?.getElement()?.querySelector('.tower-logo')?.classList.remove('is-community-related');
+        tower.marker?.setZIndexOffset(tower.baseZIndexOffset || 0);
+      });
+      if (selectedCommunityFeature) {
+        selectedCommunityFeature.marker?.getElement()?.querySelector('.community-logo')?.classList.remove('is-selected');
+        selectedCommunityFeature.relatedTowerCount = undefined;
+        selectedCommunityFeature.relatedTowers = undefined;
+      }
+      selectedCommunityFeature = null;
+    }
+
+    function highlightCommunity(community) {
+      clearCommunityHighlight();
+      if (isUpperSanLuis(community)) {
+        return 0;
+      }
+      const communityKey = normalizeCommunity(community.name);
+      const relatedTowers = features.filter((tower) => {
+        const towerCommunity = tower.attributes.find(([key]) => key.toLowerCase() === 'comunidad')?.[1];
+        return towerCommunity && normalizeCommunity(towerCommunity) === communityKey;
+      });
+      if (!relatedTowers.length) return 0;
+
+      selectedCommunityFeature = community;
+      community.relatedTowers = relatedTowers;
+      community.relatedTowerCount = relatedTowers.length;
+
+      relatedTowers.forEach((tower) => {
+        tower.marker?.getElement()?.querySelector('.tower-logo')?.classList.add('is-community-related');
+        tower.marker?.setZIndexOffset(8000);
+      });
+      community.marker?.getElement()?.querySelector('.community-logo')?.classList.add('is-selected');
+      return relatedTowers.length;
+    }
+
+    function buildGisPopupContent(feature, layerName) {
+      const rows = (feature.attributes || []).map(([key, value]) => (
+        `<div class="popup-row"><dt>${escapeHtml(key)}</dt><dd>${escapeHtml(value || 'Sin dato')}</dd></div>`
+      )).join('');
+
+      const relatedSummary = Number.isInteger(feature.relatedTowerCount)
+        ? `<div class="community-related-summary">${feature.relatedTowerCount} ${feature.relatedTowerCount === 1 ? 'torre asociada' : 'torres asociadas'}</div>`
+        : '';
+
+      const lat = feature.coordinates[1];
+      const lng = feature.coordinates[0];
+      const safeName = escapeHtml(feature.name);
+
+      return `
+        <div class="feature-popup">
+          <div class="popup-layer">${escapeHtml(layerName)}</div>
+          <h3>${safeName}</h3>
+          ${relatedSummary}
+          <button type="button" class="popup-action-btn" onclick="seleccionarPuntoDesdeCapa(${lat}, ${lng}, '${safeName.replace(/'/g, "\\'")}')">
+            🎯 Usar este punto en el reporte
+          </button>
+          <dl class="popup-dl">${rows || '<div class="popup-row"><dt>Info</dt><dd>Sin atributos adicionales</dd></div>'}</dl>
+        </div>
+      `;
+    }
+
+    function showFeatureInfo(markerOrLayer, feature, layerName) {
+      const latlng = markerOrLayer.getLatLng ? markerOrLayer.getLatLng() : [feature.coordinates[1], feature.coordinates[0]];
+      featurePopup.setLatLng(latlng).setContent(buildGisPopupContent(feature, layerName)).openOn(map);
+    }
+
+    function addClickablePoints(xml, layer, layerName, style) {
+      const placemarks = Array.from(xml.getElementsByTagNameNS('*', 'Placemark'));
+      const points = placemarks.map(readPlacemark).filter(Boolean);
+      points.forEach((feature) => {
+        const icon = L.divIcon({
+          className: '',
+          html: style.iconHtml || `<div class="cauce-point ${style.markerClass || ''}"></div>`,
+          iconSize: style.iconSize || [15, 15],
+          iconAnchor: style.iconAnchor || [7, 7]
+        });
+        feature.baseZIndexOffset = style.zIndexOffset ?? 1000;
+        const marker = L.marker([feature.coordinates[1], feature.coordinates[0]], {
+          icon,
+          title: feature.name,
+          zIndexOffset: feature.baseZIndexOffset,
+          riseOnHover: true
+        });
+        feature.marker = marker;
+        marker.bindTooltip(feature.name, {
+          permanent: true,
+          direction: 'right',
+          offset: style.labelOffset || [8, 0],
+          className: style.labelClass || 'asset-name-label',
+          opacity: 1
+        });
+        marker.on('click', (e) => {
+          if (e && e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+          if (style.onClick) {
+            map.closePopup(featurePopup);
+            const clickResult = style.onClick(feature);
+            if (clickResult && Array.isArray(feature.relatedTowers) && feature.relatedTowers.length) {
+              const bounds = L.latLngBounds([
+                ...feature.relatedTowers.map((tower) => [tower.coordinates[1], tower.coordinates[0]]),
+                [feature.coordinates[1], feature.coordinates[0]]
+              ]);
+              if (bounds.isValid()) map.fitBounds(bounds.pad(0.25), { maxZoom: 14 });
+            }
+            showFeatureInfo(marker, feature, layerName);
+            return;
+          }
+          clearCommunityHighlight();
+          showFeatureInfo(marker, feature, layerName);
+        }).addTo(layer);
+      });
+      return points;
+    }
+
+    async function loadGisLayers() {
+      const paths = [
+        './kml/Torres.kml',
+        './kml/Aeros_Parque.kml',
+        './kml/Area_Parque.kml',
+        './kml/Ocupacion_Cauce_Linea.kml',
+        './kml/Ocupaciones_Cauce_Parque.kml'
+      ];
+
+      try {
+        const [kmlResponses, communitiesResponse] = await Promise.all([
+          Promise.all(paths.map(path => fetch(path))),
+          fetch('./kml/Comunidades_2026.kmz')
+        ]);
+
+        const failedIndex = kmlResponses.findIndex(r => !r.ok);
+        if (failedIndex !== -1) {
+          throw new Error(`No se pudo leer ${paths[failedIndex]} (HTTP ${kmlResponses[failedIndex].status})`);
+        }
+        if (!communitiesResponse.ok) {
+          throw new Error(`No se pudo leer Comunidades_2026.kmz (HTTP ${communitiesResponse.status})`);
+        }
+
+        const [documents, communityArchive] = await Promise.all([
+          Promise.all(kmlResponses.map(async (response, index) => parseKml(await response.text(), paths[index]))),
+          JSZip.loadAsync(await communitiesResponse.arrayBuffer())
+        ]);
+
+        const communityKml = Object.values(communityArchive.files).find(entry => !entry.dir && entry.name.toLowerCase().endsWith('.kml'));
+        if (!communityKml) throw new Error('No se encontró un archivo KML dentro de Comunidades_2026.kmz.');
+        const communitiesDocument = parseKml(await communityKml.async('text'), 'Comunidades_2026.kmz');
+
+        // A. TORRES
+        const towerPlacemarks = Array.from(documents[0].getElementsByTagNameNS('*', 'Placemark'));
+        features = towerPlacemarks.map(readPlacemark).filter(Boolean);
+        if (!features.length) throw new Error('No se encontraron torres válidas en kml/Torres.kml.');
+
+        features.forEach((feature) => {
+          feature.baseZIndexOffset = 0;
+          const marker = L.marker([feature.coordinates[1], feature.coordinates[0]], {
+            icon: makeTowerIcon(),
+            title: feature.name,
+            zIndexOffset: 0,
+            riseOnHover: true
+          });
+          feature.marker = marker;
+          marker.bindTooltip(feature.name, {
+            permanent: true,
+            direction: 'right',
+            offset: [8, 0],
+            className: 'tower-name-label',
+            opacity: 1
+          });
+          marker.on('click', (e) => {
+            if (e && e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+            clearCommunityHighlight();
+            showFeatureInfo(marker, feature, 'Torre');
+          });
+          marker.addTo(towerLayer);
+        });
+
+        // B. AEROGENERADORES
+        aerosFeatures = addClickablePoints(documents[1], aerosLayer, 'Aerogenerador', {
+          iconHtml: '<img class="aeros-logo" src="./svg/eolica.svg" alt="">',
+          iconSize: [36, 24],
+          iconAnchor: [18, 12],
+          zIndexOffset: 1000
+        });
+
+        // C. OCUPACIÓN CAUCE LÍNEA
+        cauceLineaFeatures = addClickablePoints(documents[3], cauceLineaLayer, 'Ocupación de cauce · Línea', {
+          markerClass: 'cauce-line-point',
+          iconSize: [11, 11],
+          iconAnchor: [5, 5],
+          zIndexOffset: 2000
+        });
+
+        // D. OCUPACIÓN CAUCE PARQUE
+        cauceParqueFeatures = addClickablePoints(documents[4], cauceParqueLayer, 'Ocupación de cauce · Parque', {
+          markerClass: 'cauce-park-point',
+          iconSize: [11, 11],
+          iconAnchor: [5, 5],
+          zIndexOffset: 3000
+        });
+
+        // E. COMUNIDADES
+        communityFeatures = addClickablePoints(communitiesDocument, communitiesLayer, 'Comunidad', {
+          iconHtml: '<img class="community-logo" src="./svg/hut.svg" alt="">',
+          iconSize: [30, 30],
+          iconAnchor: [15, 15],
+          labelClass: 'community-name-label',
+          labelOffset: [9, 0],
+          zIndexOffset: 16000,
+          onClick: highlightCommunity
+        });
+
+        // F. POLÍGONO ÁREA DEL PARQUE
+        const polygonParts = Array.from(documents[2].getElementsByTagNameNS('*', 'Polygon')).map((polygon) => {
+          const outerBoundary = polygon.getElementsByTagNameNS('*', 'outerBoundaryIs')[0];
+          const outer = parseCoordinates(outerBoundary?.getElementsByTagNameNS('*', 'coordinates')[0]);
+          const holes = Array.from(polygon.getElementsByTagNameNS('*', 'innerBoundaryIs')).map((boundary) => parseCoordinates(boundary.getElementsByTagNameNS('*', 'coordinates')[0]));
+          return outer.length ? [outer, ...holes.filter(ring => ring.length)] : null;
+        }).filter(Boolean);
+
+        if (polygonParts.length) {
+          const areaGeometry = polygonParts.length === 1 ? polygonParts[0] : polygonParts;
+          L.polygon(areaGeometry, {
+            color: '#c75d47',
+            weight: 2,
+            fillColor: '#e59a70',
+            fillOpacity: 0.16,
+            interactive: false
+          }).addTo(areaLayer);
+        }
+
+        updateMapLabels();
+        console.log(`Capas SIG cargadas con éxito: ${features.length} torres, ${aerosFeatures.length} aerogeneradores, ${communityFeatures.length} comunidades.`);
+        showToast(`Capas SIG cargadas (${features.length} torres, ${communityFeatures.length} comunidades)`, 'info', 2500);
+
+      } catch (err) {
+        console.error('Error al cargar capas SIG:', err);
+        showToast('Aviso capas SIG: ' + err.message, 'warning', 4000);
+      }
+    }
 
     function getBadgeClass(tipo) {
       if (!tipo) return 'badge-otro';
@@ -989,6 +1634,7 @@
       }
     }
     cargarPuntosNube();
+    loadGisLayers();
 
     // --- MANEJO DE FOTOS Y PREVISUALIZACIÓN ---
     let selectedFiles = [];

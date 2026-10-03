@@ -1,11 +1,15 @@
-const CACHE_NAME = 'guajira-offline-v5';
+const CACHE_NAME = 'guajira-offline-v6';
 const urlsToCache = [
   '/',
   '/index.html',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
-  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap'
+  'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
+  '/svg/transmission-tower.svg',
+  '/svg/eolica.svg',
+  '/svg/hut.svg'
 ];
 
 self.addEventListener('install', event => {
