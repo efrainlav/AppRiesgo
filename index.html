@@ -1059,10 +1059,6 @@
       localStorage.setItem('app_reportante_nombre', reporterInput.value.trim());
     });
 
-    function setProyecto(nombre) {
-      document.getElementById('proyecto').value = nombre;
-    }
-
     // --- TOAST NOTIFICATIONS ---
     function showToast(message, type = 'info', duration = 3500) {
       const container = document.getElementById('toast-container');
@@ -2209,7 +2205,6 @@
         tipo_riesgo: tipoRiesgo,
         causalidad: causalidad,
         estado_riesgo: estadoRiesgo,
-        proyecto: '',
         descripcion: descripcionFinal,
         latitud: lat,
         longitud: lng,
@@ -2303,40 +2298,21 @@
       delete reporte.fotosLocales;
       reporte.fotos = fotosUrls;
 
-      // Payload completo con el nuevo esquema de riesgos
-      const payloadNuevo = {
+      // Payload exacto con las columnas de reportes_campo (sin columna proyecto)
+      const payloadSupabase = {
         fecha_evento: reporte.fecha_evento,
         nombre_reportante: reporte.nombre_reportante,
-        tipo_riesgo: reporte.tipo_riesgo,
-        estado_riesgo: reporte.estado_riesgo,
-        causalidad: reporte.causalidad,
-        descripcion: reporte.descripcion,
+        tipo_riesgo: reporte.tipo_riesgo || (reporte.tipo_evento ? reporte.tipo_evento.split('·')[0].trim() : 'General'),
+        estado_riesgo: reporte.estado_riesgo || (reporte.tipo_evento && reporte.tipo_evento.includes('Materializado') ? 'Materializado' : 'Latente'),
+        causalidad: reporte.causalidad || reporte.descripcion || 'Sin causalidad',
+        descripcion: reporte.descripcion || '',
         latitud: reporte.latitud,
         longitud: reporte.longitud,
         fotos: fotosUrls,
-        tipo_evento: reporte.tipo_evento,
-        proyecto: ''
+        tipo_evento: reporte.tipo_evento || `${reporte.tipo_riesgo} · ${reporte.estado_riesgo}`
       };
 
-      let { error } = await supabaseClient.from('reportes_campo').insert([payloadNuevo]);
-
-      // Si la tabla de Supabase aún no tiene las nuevas columnas, fallback al esquema anterior
-      if (error && error.message && error.message.includes('column')) {
-        console.warn('Tabla con esquema anterior en Supabase, enviando payload compatible:', error.message);
-        const payloadLegacy = {
-          tipo_evento: reporte.tipo_evento,
-          proyecto: '',
-          descripcion: reporte.descripcion,
-          latitud: reporte.latitud,
-          longitud: reporte.longitud,
-          fecha_evento: reporte.fecha_evento,
-          nombre_reportante: reporte.nombre_reportante,
-          fotos: fotosUrls
-        };
-        const resLegacy = await supabaseClient.from('reportes_campo').insert([payloadLegacy]);
-        error = resLegacy.error;
-      }
-
+      const { error } = await supabaseClient.from('reportes_campo').insert([payloadSupabase]);
       if (error) throw error;
     }
 
