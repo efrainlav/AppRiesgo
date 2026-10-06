@@ -380,6 +380,13 @@
       box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
     }
 
+    select:disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      cursor: not-allowed;
+      border-color: #cbd5e1;
+    }
+
     .grid-2 {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -571,6 +578,11 @@
       font-weight: 700;
       margin-bottom: 4px;
     }
+    .badge-territorio { background: #f3e8ff; color: #7e22ce; border: 1px solid #d8b4fe; }
+    .badge-seguridad { background: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+    .badge-predial { background: #fef3c7; color: #b45309; border: 1px solid #fde68a; }
+    .badge-latente { background: #e0f2fe; color: #0284c7; border: 1px solid #bae6fd; font-weight: 700; }
+    .badge-materializado { background: #fee2e2; color: #991b1b; border: 1px solid #f87171; font-weight: 800; }
     .badge-bloqueo { background: #fee2e2; color: #b91c1c; }
     .badge-comunidad { background: #f3e8ff; color: #7e22ce; }
     .badge-ambiental { background: #e0f2fe; color: #0369a1; }
@@ -961,15 +973,30 @@
             </div>
           </div>
 
+          <div class="grid-2">
+            <div class="form-group">
+              <label for="tipo_riesgo">Tipo de Riesgo (NRiesgo)</label>
+              <select id="tipo_riesgo" required onchange="actualizarCausalidades()">
+                <option value="">Seleccione tipo de riesgo...</option>
+                <option value="Territorio">🏷️ Territorio</option>
+                <option value="Seguridad Física">🛡️ Seguridad Física</option>
+                <option value="Predial">🏡 Predial</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="estado_riesgo">Estado del Riesgo</label>
+              <select id="estado_riesgo" required>
+                <option value="">Seleccione estado...</option>
+                <option value="Latente">⏳ Riesgo Latente</option>
+                <option value="Materializado">💥 Riesgo Materializado</option>
+              </select>
+            </div>
+          </div>
+
           <div class="form-group">
-            <label for="tipo">Tipo de Evento</label>
-            <select id="tipo" required>
-              <option value="">Seleccione tipo de incidente...</option>
-              <option value="Bloqueo de vía">🚫 Bloqueo de vía</option>
-              <option value="Acceso comunitario / Intervención">👥 Acceso comunitario / Intervención</option>
-              <option value="Punto de interés / Logístico">📍 Punto de interés / Logístico</option>
-              <option value="Incidente ambiental / Clima">🌧️ Incidente ambiental / Clima</option>
-              <option value="Otro">ℹ️ Otro</option>
+            <label for="causalidad">Causalidad (Descripción del Riesgo)</label>
+            <select id="causalidad" required disabled>
+              <option value="">Primero seleccione el tipo de riesgo...</option>
             </select>
           </div>
 
@@ -985,8 +1012,8 @@
           </div>
 
           <div class="form-group">
-            <label for="descripcion">Descripción de lo ocurrido</label>
-            <textarea id="descripcion" rows="2" placeholder="Detalla novedades, personas involucradas, requerimientos..."></textarea>
+            <label for="descripcion">Observaciones adicionales / Notas</label>
+            <textarea id="descripcion" rows="2" placeholder="Detalles específicos del evento o condición encontrada..."></textarea>
           </div>
 
           <div class="form-group">
@@ -1937,10 +1964,91 @@
       }
     }
 
+    // --- CAUSALIDADES POR TIPO DE RIESGO (DESDE dm_causalidad.xlsx) ---
+    const CAUSALIDADES_DATA = {
+      "Territorio": [
+        "Conflicto interclanil",
+        "Incumplimiento ley Wayuu",
+        "Usos y costumbres",
+        "Cambio de autoridades",
+        "Prácticas culturales",
+        "Acceso condicionado",
+        "Nuevas comunidades",
+        "Acuerdos incumplidos",
+        "Obligación socioambiental",
+        "Gestión tardía PQR",
+        "Pagos no acordados",
+        "Inversión social",
+        "Bienes y servicios",
+        "Intervención de terceros",
+        "Presencia fuerza pública",
+        "Pasivos del gobierno",
+        "Pasivos sector privado",
+        "Conflictividad externa",
+        "Salarios y beneficios"
+      ],
+      "Seguridad Física": [
+        "Restricciones de acceso a zona fronteriza",
+        "Presencia de grupos ilegales",
+        "Hurtos de vehículos",
+        "Hurtos de maquinaria, equipo o materiales",
+        "Daños o afectación a maquinaria y equipos",
+        "Atentados a los equipos",
+        "Sabotaje por parte del personal",
+        "Falla técnica"
+      ],
+      "Predial": [
+        "Altas expectativas económicas",
+        "Exigencias económicas",
+        "Expectativas en la negociación de la servidumbre",
+        "Solicitudes por propietarios",
+        "Demoras en la entrega de áreas por parte de los juzgados",
+        "Reformar y retirar demandas",
+        "Desconocimiento de acuerdos privados",
+        "Propietario considera debe tener tratamiento diferencial",
+        "Radios de giro adicionales",
+        "Requerimiento de áreas adicionales",
+        "Restricciones ambientales"
+      ]
+    };
+
+    function actualizarCausalidades() {
+      const tipoSelect = document.getElementById('tipo_riesgo');
+      const causalidadSelect = document.getElementById('causalidad');
+      const tipoSeleccionado = tipoSelect.value;
+
+      causalidadSelect.innerHTML = '';
+
+      if (!tipoSeleccionado || !CAUSALIDADES_DATA[tipoSeleccionado]) {
+        causalidadSelect.disabled = true;
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = 'Primero seleccione el tipo de riesgo...';
+        causalidadSelect.appendChild(opt);
+        return;
+      }
+
+      causalidadSelect.disabled = false;
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = 'Seleccione causalidad / descripción...';
+      causalidadSelect.appendChild(defaultOpt);
+
+      CAUSALIDADES_DATA[tipoSeleccionado].forEach((desc) => {
+        const opt = document.createElement('option');
+        opt.value = desc;
+        opt.textContent = desc;
+        causalidadSelect.appendChild(opt);
+      });
+    }
+
     function getBadgeClass(tipo) {
       if (!tipo) return 'badge-otro';
+      if (tipo.includes('Seguridad')) return 'badge-seguridad';
+      if (tipo.includes('Territorio')) return 'badge-territorio';
+      if (tipo.includes('Predial')) return 'badge-predial';
       if (tipo.includes('Bloqueo')) return 'badge-bloqueo';
-      if (tipo.includes('Comunidad') || tipo.includes('Acceso')) return 'badge-comunidad';
+      if (tipo.includes('Comunidad')) return 'badge-comunidad';
       if (tipo.includes('ambiental') || tipo.includes('Clima')) return 'badge-ambiental';
       if (tipo.includes('interés') || tipo.includes('Logístico')) return 'badge-interes';
       return 'badge-otro';
@@ -1948,6 +2056,10 @@
 
     function getColorMarker(tipo) {
       if (!tipo) return '#64748b';
+      const isMaterializado = tipo.includes('Materializado') || tipo.includes('Bloqueo');
+      if (tipo.includes('Seguridad')) return isMaterializado ? '#dc2626' : '#f87171';
+      if (tipo.includes('Territorio')) return isMaterializado ? '#7c3aed' : '#a78bfa';
+      if (tipo.includes('Predial')) return isMaterializado ? '#d97706' : '#f59e0b';
       if (tipo.includes('Bloqueo')) return '#ef4444';
       if (tipo.includes('Comunidad') || tipo.includes('Acceso')) return '#8b5cf6';
       if (tipo.includes('ambiental') || tipo.includes('Clima')) return '#0ea5e9';
@@ -1979,6 +2091,20 @@
             const badgeClass = getBadgeClass(item.tipo_evento);
             const markerColor = getColorMarker(item.tipo_evento);
 
+            const isLatente = item.tipo_evento && item.tipo_evento.includes('Latente');
+            const isMaterializado = item.tipo_evento && item.tipo_evento.includes('Materializado');
+
+            let estadoBadgeHtml = '';
+            if (isMaterializado) {
+              estadoBadgeHtml = `<span class="popup-badge badge-materializado">💥 Materializado</span>`;
+            } else if (isLatente) {
+              estadoBadgeHtml = `<span class="popup-badge badge-latente">⏳ Latente</span>`;
+            }
+
+            let tipoLabel = item.tipo_evento || 'Riesgo';
+            if (tipoLabel.includes('·')) tipoLabel = tipoLabel.split('·')[0].trim();
+            else if (tipoLabel.includes('(')) tipoLabel = tipoLabel.split('(')[0].trim();
+
             let fotosHtml = '';
             if (item.fotos && Array.isArray(item.fotos) && item.fotos.length > 0) {
               fotosHtml = `<div class="popup-img-grid">` + 
@@ -1987,25 +2113,28 @@
             }
 
             const popupContent = `
-              <div style="min-width: 180px;">
-                <span class="popup-badge ${badgeClass}">${item.tipo_evento || 'Evento'}</span>
-                <h4 style="margin: 4px 0 2px 0; font-size: 14px; font-weight: 700;">${item.proyecto || 'Sin proyecto'}</h4>
+              <div style="min-width: 200px;">
+                <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 4px;">
+                  <span class="popup-badge ${badgeClass}">${escapeHtml(tipoLabel)}</span>
+                  ${estadoBadgeHtml}
+                </div>
+                <h4 style="margin: 4px 0 2px 0; font-size: 14px; font-weight: 700;">${escapeHtml(item.proyecto || 'Sin proyecto')}</h4>
                 <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
                   ${item.fecha_evento ? new Date(item.fecha_evento).toLocaleString() : ''}
-                  ${item.nombre_reportante ? '• ' + item.nombre_reportante : ''}
+                  ${item.nombre_reportante ? '• ' + escapeHtml(item.nombre_reportante) : ''}
                 </div>
-                ${item.descripcion ? `<p style="font-size: 12px; margin: 4px 0 6px 0; color: #334155;">${item.descripcion}</p>` : ''}
+                ${item.descripcion ? `<p style="font-size: 12px; margin: 4px 0 6px 0; color: #334155; line-height: 1.4;">${escapeHtml(item.descripcion)}</p>` : ''}
                 ${fotosHtml}
               </div>
             `;
 
             L.circleMarker([item.latitud, item.longitud], {
-              radius: 8,
+              radius: 8.5,
               fillColor: markerColor,
               color: '#ffffff',
               weight: 2,
               opacity: 1,
-              fillOpacity: 0.85
+              fillOpacity: 0.9
             }).addTo(cloudMarkersLayer).bindPopup(popupContent, { className: 'custom-popup' });
           });
         }
@@ -2060,12 +2189,41 @@
         return;
       }
 
+      const tipoRiesgo = document.getElementById('tipo_riesgo').value;
+      const estadoRiesgo = document.getElementById('estado_riesgo').value;
+      const causalidad = document.getElementById('causalidad').value;
+      const notas = document.getElementById('descripcion').value.trim();
+
+      if (!tipoRiesgo) {
+        showToast('Selecciona el Tipo de Riesgo', 'warning');
+        btn.disabled = false;
+        return;
+      }
+      if (!estadoRiesgo) {
+        showToast('Selecciona si el riesgo es Latente o Materializado', 'warning');
+        btn.disabled = false;
+        return;
+      }
+      if (!causalidad) {
+        showToast('Selecciona la Causalidad del riesgo', 'warning');
+        btn.disabled = false;
+        return;
+      }
+
       btn.disabled = true;
 
+      // Se consolida el tipo de riesgo y su estado para base de datos
+      const tipoEvento = `${tipoRiesgo} · ${estadoRiesgo}`;
+      // Se consolida la causalidad elegida y las notas adicionales si existen
+      const descripcionFinal = notas ? `[${causalidad}] ${notas}` : causalidad;
+
       const reporte = {
-        tipo_evento: document.getElementById('tipo').value,
+        tipo_evento: tipoEvento,
+        tipo_riesgo: tipoRiesgo,
+        causalidad: causalidad,
+        estado_riesgo: estadoRiesgo,
         proyecto: document.getElementById('proyecto').value,
-        descripcion: document.getElementById('descripcion').value,
+        descripcion: descripcionFinal,
         latitud: lat,
         longitud: lng,
         fecha_evento: document.getElementById('fecha_evento').value,
@@ -2098,6 +2256,7 @@
 
     function limpiarFormulario() {
       document.getElementById('report-form').reset();
+      actualizarCausalidades();
       selectedFiles = [];
       renderThumbnails();
       // Restaurar nombre guardado
@@ -2157,7 +2316,18 @@
       delete reporte.fotosLocales;
       reporte.fotos = fotosUrls;
 
-      const { error } = await supabaseClient.from('reportes_campo').insert([reporte]);
+      const payloadSupabase = {
+        tipo_evento: reporte.tipo_evento,
+        proyecto: reporte.proyecto,
+        descripcion: reporte.descripcion,
+        latitud: reporte.latitud,
+        longitud: reporte.longitud,
+        fecha_evento: reporte.fecha_evento,
+        nombre_reportante: reporte.nombre_reportante,
+        fotos: fotosUrls
+      };
+
+      const { error } = await supabaseClient.from('reportes_campo').insert([payloadSupabase]);
       if (error) throw error;
     }
 
