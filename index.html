@@ -1001,19 +1001,8 @@
           </div>
 
           <div class="form-group">
-            <label for="proyecto">Proyecto / Tramo</label>
-            <input type="text" id="proyecto" placeholder="Ej: Vía Uribia / Parque Windpeshi" required>
-            <div class="chips-wrapper">
-              <button type="button" class="chip-btn" onclick="setProyecto('Vía Uribia')">Vía Uribia</button>
-              <button type="button" class="chip-btn" onclick="setProyecto('Windpeshi')">Windpeshi</button>
-              <button type="button" class="chip-btn" onclick="setProyecto('Línea 110kV')">Línea 110kV</button>
-              <button type="button" class="chip-btn" onclick="setProyecto('Subestación')">Subestación</button>
-            </div>
-          </div>
-
-          <div class="form-group">
-            <label for="descripcion">Observaciones adicionales / Notas</label>
-            <textarea id="descripcion" rows="2" placeholder="Detalles específicos del evento o condición encontrada..."></textarea>
+            <label for="descripcion">Observaciones adicionales</label>
+            <textarea id="descripcion" rows="3" placeholder="Detalles específicos del evento o condición encontrada..."></textarea>
           </div>
 
           <div class="form-group">
@@ -1239,9 +1228,9 @@
     function seleccionarPuntoDesdeCapa(lat, lng, nombre) {
       updateMarker(lat, lng);
       map.setView([lat, lng], Math.max(map.getZoom(), 15));
-      const projInput = document.getElementById('proyecto');
-      if (projInput && (!projInput.value || projInput.value.trim() === '')) {
-        projInput.value = nombre;
+      const descInput = document.getElementById('descripcion');
+      if (descInput && (!descInput.value || descInput.value.trim() === '')) {
+        descInput.value = `Referencia: ${nombre}`;
       }
       showToast(`Punto fijado: ${nombre}`, 'success', 2200);
     }
@@ -2118,7 +2107,7 @@
                   <span class="popup-badge ${badgeClass}">${escapeHtml(tipoLabel)}</span>
                   ${estadoBadgeHtml}
                 </div>
-                <h4 style="margin: 4px 0 2px 0; font-size: 14px; font-weight: 700;">${escapeHtml(item.proyecto || 'Sin proyecto')}</h4>
+                ${item.proyecto ? `<h4 style="margin: 4px 0 2px 0; font-size: 14px; font-weight: 700;">${escapeHtml(item.proyecto)}</h4>` : ''}
                 <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
                   ${item.fecha_evento ? new Date(item.fecha_evento).toLocaleString() : ''}
                   ${item.nombre_reportante ? '• ' + escapeHtml(item.nombre_reportante) : ''}
@@ -2222,7 +2211,7 @@
         tipo_riesgo: tipoRiesgo,
         causalidad: causalidad,
         estado_riesgo: estadoRiesgo,
-        proyecto: document.getElementById('proyecto').value,
+        proyecto: '',
         descripcion: descripcionFinal,
         latitud: lat,
         longitud: lng,
