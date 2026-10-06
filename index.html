@@ -2102,9 +2102,24 @@
 
             let fotosHtml = '';
             if (item.fotos && Array.isArray(item.fotos) && item.fotos.length > 0) {
-              fotosHtml = `<div class="popup-img-grid">` + 
-                item.fotos.map(url => `<a href="${url}" target="_blank"><img src="${url}" loading="lazy" alt="Evidencia"></a>`).join('') +
-                `</div>`;
+              const fotosValidas = item.fotos.filter(url => {
+                if (typeof url !== 'string') return false;
+                try {
+                  const p = new URL(url);
+                  return (p.protocol === 'https:' || p.protocol === 'http:') && !url.includes('<') && !url.includes('"');
+                } catch {
+                  return false;
+                }
+              });
+
+              if (fotosValidas.length > 0) {
+                fotosHtml = `<div class="popup-img-grid">` + 
+                  fotosValidas.map(url => {
+                    const safeUrl = encodeURI(url);
+                    return `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer"><img src="${safeUrl}" loading="lazy" alt="Evidencia"></a>`;
+                  }).join('') +
+                  `</div>`;
+              }
             }
 
             const popupContent = `
@@ -2146,7 +2161,33 @@
 
     function manejarSeleccionFotos(e) {
       const files = Array.from(e.target.files);
-      selectedFiles = selectedFiles.concat(files);
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // Máximo 10 MB por imagen
+      const MAX_TOTAL_PHOTOS = 5; // Máximo 5 imágenes por reporte
+      const validExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+      for (let file of files) {
+        if (selectedFiles.length >= MAX_TOTAL_PHOTOS) {
+          showToast(`Límite alcanzado: máximo ${MAX_TOTAL_PHOTOS} fotos por reporte`, 'warning');
+          break;
+        }
+
+        const ext = file.name ? file.name.split('.').pop().toLowerCase() : '';
+        const isImage = (file.type && file.type.startsWith('image/')) || validExtensions.includes(ext);
+
+        if (!isImage) {
+          showToast(`"${file.name}" no es una imagen válida (JPG, PNG o WEBP)`, 'warning');
+          continue;
+        }
+
+        if (file.size > MAX_FILE_SIZE) {
+          showToast(`"${file.name}" supera el tamaño máximo permitido (10 MB)`, 'warning');
+          continue;
+        }
+
+        selectedFiles.push(file);
+      }
+
+      e.target.value = '';
       renderThumbnails();
     }
 
@@ -2179,8 +2220,14 @@
       const lat = parseFloat(document.getElementById('lat').value);
       const lng = parseFloat(document.getElementById('lng').value);
 
-      if (!lat || !lng) {
+      if (isNaN(lat) || isNaN(lng)) {
         showToast('Debes seleccionar un punto en el mapa o usar 🎯', 'warning');
+        return;
+      }
+
+      // Validación de rango geográfico en Colombia (evita 0, 0 o coordenadas en otros países/océanos)
+      if (lat < -4.5 || lat > 15.0 || lng < -83.0 || lng > -66.0) {
+        showToast('Las coordenadas deben estar dentro del territorio de Colombia', 'warning');
         return;
       }
 
@@ -2287,20 +2334,27 @@
       const fotosUrls = [];
       if (reporte.fotosLocales && reporte.fotosLocales.length > 0) {
         for (let file of reporte.fotosLocales) {
-          const extension = file.name ? file.name.split('.').pop() : 'jpg';
-          const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${extension}`;
+          const rawExt = file.name ? file.name.split('.').pop().toLowerCase() : 'jpg';
+          const extension = ['jpg', 'jpeg', 'png', 'webp'].includes(rawExt) ? rawExt : 'jpg';
+          
+          const rand = new Uint32Array(2);
+          window.crypto.getRandomValues(rand);
+          const fileName = `${Date.now()}_${rand[0].toString(36)}_${rand[1].toString(36)}.${extension}`;
+          const mimeType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) ? file.type : 'image/jpeg';
           
           const { error: uploadError } = await supabaseClient
             .storage
             .from('evidencias-campo')
-            .upload(fileName, file, { contentType: file.type || 'image/jpeg' });
+            .upload(fileName, file, { contentType: mimeType, upsert: false });
 
           if (!uploadError) {
             const { data } = supabaseClient
               .storage
               .from('evidencias-campo')
               .getPublicUrl(fileName);
-            fotosUrls.push(data.publicUrl);
+            if (data && data.publicUrl) {
+              fotosUrls.push(data.publicUrl);
+            }
           } else {
             console.warn('Error al subir imagen:', uploadError);
           }
@@ -2310,18 +2364,26 @@
       delete reporte.fotosLocales;
       reporte.fotos = fotosUrls;
 
-      // Payload exacto con las columnas de reportes_campo (sin columna proyecto)
+      // Sanitizar longitudes y strings para prevenir sobrecargas
+      const safeReportante = (reporte.nombre_reportante || '').trim().substring(0, 120);
+      const safeCausalidad = (reporte.causalidad || '').trim().substring(0, 300);
+      const safeDescripcion = (reporte.descripcion || '').trim().substring(0, 3000);
+      const safeTipoRiesgo = (reporte.tipo_riesgo || '').trim().substring(0, 80);
+      const safeEstadoRiesgo = (reporte.estado_riesgo || '').trim().substring(0, 80);
+      const safeTipoEvento = (reporte.tipo_evento || '').trim().substring(0, 160);
+
+      // Payload exacto con las columnas de reportes_campo
       const payloadSupabase = {
-        fecha_evento: reporte.fecha_evento,
-        nombre_reportante: reporte.nombre_reportante,
-        tipo_riesgo: reporte.tipo_riesgo || (reporte.tipo_evento ? reporte.tipo_evento.split('·')[0].trim() : 'General'),
-        estado_riesgo: reporte.estado_riesgo || (reporte.tipo_evento && reporte.tipo_evento.includes('Materializado') ? 'Materializado' : 'Latente'),
-        causalidad: reporte.causalidad || reporte.descripcion || 'Sin causalidad',
-        descripcion: reporte.descripcion || '',
-        latitud: reporte.latitud,
-        longitud: reporte.longitud,
+        fecha_evento: reporte.fecha_evento || new Date().toISOString(),
+        nombre_reportante: safeReportante,
+        tipo_riesgo: safeTipoRiesgo || 'General',
+        estado_riesgo: safeEstadoRiesgo || 'Latente',
+        causalidad: safeCausalidad || 'Sin causalidad',
+        descripcion: safeDescripcion,
+        latitud: Number(reporte.latitud),
+        longitud: Number(reporte.longitud),
         fotos: fotosUrls,
-        tipo_evento: reporte.tipo_evento || `${reporte.tipo_riesgo} · ${reporte.estado_riesgo}`
+        tipo_evento: safeTipoEvento || `${safeTipoRiesgo} · ${safeEstadoRiesgo}`
       };
 
       const { error } = await supabaseClient.from('reportes_campo').insert([payloadSupabase]);

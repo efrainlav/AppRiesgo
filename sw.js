@@ -1,4 +1,4 @@
-const CACHE_NAME = 'guajira-offline-v9';
+const CACHE_NAME = 'guajira-offline-v10';
 const TILES_CACHE_NAME = 'guajira-tiles-v1';
 
 const urlsToCache = [
