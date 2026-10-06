@@ -2077,22 +2077,20 @@
           data.forEach(item => {
             if (!item.latitud || !item.longitud) return;
 
-            const badgeClass = getBadgeClass(item.tipo_evento);
-            const markerColor = getColorMarker(item.tipo_evento);
+            const tipoRiesgo = item.tipo_riesgo || (item.tipo_evento ? item.tipo_evento.split('·')[0].trim() : 'Riesgo');
+            const estadoRiesgo = item.estado_riesgo || (item.tipo_evento?.includes('Materializado') ? 'Materializado' : item.tipo_evento?.includes('Latente') ? 'Latente' : '');
+            const causalidad = item.causalidad || '';
+            const observaciones = item.descripcion || '';
 
-            const isLatente = item.tipo_evento && item.tipo_evento.includes('Latente');
-            const isMaterializado = item.tipo_evento && item.tipo_evento.includes('Materializado');
+            const badgeClass = getBadgeClass(tipoRiesgo);
+            const markerColor = getColorMarker(estadoRiesgo ? `${tipoRiesgo} · ${estadoRiesgo}` : tipoRiesgo);
 
             let estadoBadgeHtml = '';
-            if (isMaterializado) {
+            if (estadoRiesgo === 'Materializado') {
               estadoBadgeHtml = `<span class="popup-badge badge-materializado">💥 Materializado</span>`;
-            } else if (isLatente) {
+            } else if (estadoRiesgo === 'Latente') {
               estadoBadgeHtml = `<span class="popup-badge badge-latente">⏳ Latente</span>`;
             }
-
-            let tipoLabel = item.tipo_evento || 'Riesgo';
-            if (tipoLabel.includes('·')) tipoLabel = tipoLabel.split('·')[0].trim();
-            else if (tipoLabel.includes('(')) tipoLabel = tipoLabel.split('(')[0].trim();
 
             let fotosHtml = '';
             if (item.fotos && Array.isArray(item.fotos) && item.fotos.length > 0) {
@@ -2102,17 +2100,17 @@
             }
 
             const popupContent = `
-              <div style="min-width: 200px;">
-                <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 4px;">
-                  <span class="popup-badge ${badgeClass}">${escapeHtml(tipoLabel)}</span>
+              <div style="min-width: 210px;">
+                <div style="display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 5px;">
+                  <span class="popup-badge ${badgeClass}">${escapeHtml(tipoRiesgo)}</span>
                   ${estadoBadgeHtml}
                 </div>
-                ${item.proyecto ? `<h4 style="margin: 4px 0 2px 0; font-size: 14px; font-weight: 700;">${escapeHtml(item.proyecto)}</h4>` : ''}
+                ${causalidad ? `<div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 3px;">🔍 ${escapeHtml(causalidad)}</div>` : ''}
                 <div style="font-size: 11px; color: #64748b; margin-bottom: 6px;">
                   ${item.fecha_evento ? new Date(item.fecha_evento).toLocaleString() : ''}
                   ${item.nombre_reportante ? '• ' + escapeHtml(item.nombre_reportante) : ''}
                 </div>
-                ${item.descripcion ? `<p style="font-size: 12px; margin: 4px 0 6px 0; color: #334155; line-height: 1.4;">${escapeHtml(item.descripcion)}</p>` : ''}
+                ${observaciones ? `<p style="font-size: 12px; margin: 4px 0 6px 0; color: #334155; line-height: 1.4; background: #f8fafc; padding: 6px; border-radius: 6px; border: 1px solid #e2e8f0;">${escapeHtml(observaciones)}</p>` : ''}
                 ${fotosHtml}
               </div>
             `;
@@ -2305,18 +2303,40 @@
       delete reporte.fotosLocales;
       reporte.fotos = fotosUrls;
 
-      const payloadSupabase = {
-        tipo_evento: reporte.tipo_evento,
-        proyecto: reporte.proyecto,
+      // Payload completo con el nuevo esquema de riesgos
+      const payloadNuevo = {
+        fecha_evento: reporte.fecha_evento,
+        nombre_reportante: reporte.nombre_reportante,
+        tipo_riesgo: reporte.tipo_riesgo,
+        estado_riesgo: reporte.estado_riesgo,
+        causalidad: reporte.causalidad,
         descripcion: reporte.descripcion,
         latitud: reporte.latitud,
         longitud: reporte.longitud,
-        fecha_evento: reporte.fecha_evento,
-        nombre_reportante: reporte.nombre_reportante,
-        fotos: fotosUrls
+        fotos: fotosUrls,
+        tipo_evento: reporte.tipo_evento,
+        proyecto: ''
       };
 
-      const { error } = await supabaseClient.from('reportes_campo').insert([payloadSupabase]);
+      let { error } = await supabaseClient.from('reportes_campo').insert([payloadNuevo]);
+
+      // Si la tabla de Supabase aún no tiene las nuevas columnas, fallback al esquema anterior
+      if (error && error.message && error.message.includes('column')) {
+        console.warn('Tabla con esquema anterior en Supabase, enviando payload compatible:', error.message);
+        const payloadLegacy = {
+          tipo_evento: reporte.tipo_evento,
+          proyecto: '',
+          descripcion: reporte.descripcion,
+          latitud: reporte.latitud,
+          longitud: reporte.longitud,
+          fecha_evento: reporte.fecha_evento,
+          nombre_reportante: reporte.nombre_reportante,
+          fotos: fotosUrls
+        };
+        const resLegacy = await supabaseClient.from('reportes_campo').insert([payloadLegacy]);
+        error = resLegacy.error;
+      }
+
       if (error) throw error;
     }
 
