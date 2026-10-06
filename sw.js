@@ -1,4 +1,4 @@
-const CACHE_NAME = 'guajira-offline-v7';
+const CACHE_NAME = 'guajira-offline-v8';
 const TILES_CACHE_NAME = 'guajira-tiles-v1';
 
 const urlsToCache = [
@@ -6,6 +6,7 @@ const urlsToCache = [
   '/index.html',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
+  '/js/leaflet.polylineDecorator.min.js',
   'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
   'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
   'https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap',
@@ -17,7 +18,10 @@ const urlsToCache = [
   '/kml/Area_Parque.kml',
   '/kml/Comunidades_2026.kmz',
   '/kml/Ocupacion_Cauce_Linea.kml',
-  '/kml/Ocupaciones_Cauce_Parque.kml'
+  '/kml/Ocupaciones_Cauce_Parque.kml',
+  '/shp/Vias_Medicion.geojson',
+  '/shp/Via_No_Autorizada.geojson',
+  '/shp/Via_Acceso_Windpeshi.geojson'
 ];
 
 self.addEventListener('install', event => {

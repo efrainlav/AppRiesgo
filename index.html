@@ -699,6 +699,85 @@
     }
     .leaflet-tooltip.community-name-label::before { display: none; }
 
+    /* ESTILOS DE CAPAS DE VÍAS (SHAPEFILES) */
+    .road-name-label {
+      padding: 2px 7px;
+      border: 0;
+      border-radius: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      line-height: 1.2;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    .road-name-label::before { display: none; }
+
+    .road-name-label.unauth-road-label {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid #ef4444;
+      color: #fca5a5;
+      text-shadow: 0 1px 2px #000;
+    }
+
+    .road-name-label.acceso-road-label {
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid #dc2626;
+      color: #ffffff;
+      text-shadow: 0 1px 2px #000;
+    }
+
+    .unauth-cross-icon {
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      pointer-events: none;
+    }
+    .unauth-cross-char {
+      color: #ef4444;
+      font-size: 13px;
+      font-weight: 900;
+      line-height: 1;
+      text-shadow: -1px -1px 0 #000, 1px -1px 0 #000, -1px 1px 0 #000, 1px 1px 0 #000, 0 0 2px #000;
+      display: inline-block;
+      user-select: none;
+    }
+
+    /* Muestras de simbología (swatches) en el selector de capas Leaflet acorde a ArcGIS */
+    .legend-swatch {
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+    .swatch-vias-medicion {
+      width: 18px;
+      height: 6px;
+      background: #ea580c;
+      border: 1px solid #9a3412;
+      border-radius: 2px;
+    }
+    .swatch-via-no-autorizada {
+      width: 18px;
+      height: 2px;
+      background: #0f172a;
+      position: relative;
+    }
+    .swatch-via-no-autorizada::after {
+      content: '✕';
+      position: absolute;
+      top: -8px;
+      left: 3px;
+      color: #ef4444;
+      font-size: 11px;
+      font-weight: 900;
+      line-height: 1;
+    }
+    .swatch-acceso-windpeshi {
+      width: 18px;
+      height: 0;
+      border-top: 3px dashed #ef4444;
+    }
+
     /* Popups estructurados para capas SIG */
     .feature-popup {
       min-width: 240px;
@@ -942,6 +1021,8 @@
 
   <!-- Leaflet JS -->
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- PolylineDecorator para simbología avanzada de vías (Líneas con cruces) -->
+  <script src="./js/leaflet.polylineDecorator.min.js"></script>
 
   <script>
     // --- REGISTRO DEL SERVICE WORKER (OFFLINE) ---
@@ -1061,6 +1142,9 @@
     const towerLayer = L.featureGroup().addTo(map);
     const aerosLayer = L.featureGroup().addTo(map);
     const areaLayer = L.featureGroup().addTo(map);
+    const viasMedicionLayer = L.featureGroup().addTo(map);
+    const viaNoAutorizadaLayer = L.featureGroup().addTo(map);
+    const viaAccesoLayer = L.featureGroup().addTo(map);
     const cauceLineaLayer = L.featureGroup().addTo(map);
     const cauceParqueLayer = L.featureGroup().addTo(map);
     const communitiesLayer = L.featureGroup().addTo(map);
@@ -1075,6 +1159,9 @@
       "Torres": towerLayer,
       "Aerogeneradores": aerosLayer,
       "Área del parque": areaLayer,
+      '<span class="legend-swatch swatch-vias-medicion"></span> Vias-Medicion': viasMedicionLayer,
+      '<span class="legend-swatch swatch-via-no-autorizada"></span> Via_no_Autorizada': viaNoAutorizadaLayer,
+      '<span class="legend-swatch swatch-acceso-windpeshi"></span> Acceso Windpeshi': viaAccesoLayer,
       "Ocupación de cauce · Línea": cauceLineaLayer,
       "Ocupación de cauce · Parque": cauceParqueLayer,
       "Comunidades": communitiesLayer,
@@ -1089,6 +1176,7 @@
     let cauceLineaFeatures = [];
     let cauceParqueFeatures = [];
     let communityFeatures = [];
+    let roadLabelMarkers = [];
     let selectedCommunityFeature = null;
 
     let currentMarker = null;
@@ -1329,7 +1417,8 @@
         ...aerosFeatures,
         ...cauceLineaFeatures,
         ...cauceParqueFeatures,
-        ...communityFeatures
+        ...communityFeatures,
+        ...roadLabelMarkers
       ];
       allFeatures.forEach((feat) => {
         if (!feat.marker) return;
@@ -1599,6 +1688,255 @@
       }
     }
 
+    // --- CARGA DE CAPAS DE VÍAS DESDE SHAPEFILES (GEOJSON) ---
+    async function loadRoadLayers() {
+      try {
+        const [viasMedicionRes, viaNoAutorizadaRes, viaAccesoRes] = await Promise.all([
+          fetch('./shp/Vias_Medicion.geojson'),
+          fetch('./shp/Via_No_Autorizada.geojson'),
+          fetch('./shp/Via_Acceso_Windpeshi.geojson')
+        ]);
+
+        // A. VIAS - MEDICIÓN (Vías internas de acceso a aerogeneradores)
+        if (viasMedicionRes.ok) {
+          const viasData = await viasMedicionRes.json();
+          viasData.features.forEach((feat, index) => {
+            const props = feat.properties || {};
+            const rawCoords = feat.geometry.type === 'MultiLineString' 
+              ? feat.geometry.coordinates 
+              : [feat.geometry.coordinates];
+
+            rawCoords.forEach((line) => {
+              const latlngs = line.map(c => [c[1], c[0]]);
+              if (!latlngs.length) return;
+
+              // Casing oscuro inferior para dar alto contraste sobre fondo satelital
+              L.polyline(latlngs, {
+                color: '#9a3412',
+                weight: 6.5,
+                opacity: 0.8,
+                lineCap: 'round',
+                lineJoin: 'round',
+                interactive: false
+              }).addTo(viasMedicionLayer);
+
+              // Trazo principal naranja cálido acorde a simbología ArcGIS
+              const polyline = L.polyline(latlngs, {
+                color: '#ea580c',
+                weight: 4.2,
+                opacity: 0.95,
+                lineCap: 'round',
+                lineJoin: 'round',
+                riseOnHover: true
+              }).addTo(viasMedicionLayer);
+
+              const roadName = props.Aero ? `Conexión ${props.Aero}` : `Vía Medición ${index + 1}`;
+              const midPoint = latlngs[Math.floor(latlngs.length / 2)];
+              const featureObj = {
+                name: roadName,
+                coordinates: [midPoint[1], midPoint[0]],
+                attributes: [
+                  ['Tramo / Destino', props.Aero || 'Vía interna'],
+                  ['Longitud', props.Longitud ? `${Number(props.Longitud).toFixed(1)} m` : 'No registrada'],
+                  ['Grupo', props.Grupo !== undefined ? String(props.Grupo) : '0'],
+                  ['Tipo', 'Vía de medición / Servicio interno']
+                ]
+              };
+
+              polyline.on('mouseover', () => polyline.setStyle({ weight: 6, color: '#fb923c' }));
+              polyline.on('mouseout', () => polyline.setStyle({ weight: 4.2, color: '#ea580c' }));
+              polyline.on('click', (e) => {
+                if (e && e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+                clearCommunityHighlight();
+                const clickCoord = e.latlng ? [e.latlng.lng, e.latlng.lat] : featureObj.coordinates;
+                featurePopup.setLatLng(e.latlng || [clickCoord[1], clickCoord[0]])
+                  .setContent(buildGisPopupContent({ ...featureObj, coordinates: clickCoord }, 'Vías - Medición'))
+                  .openOn(map);
+              });
+            });
+          });
+        }
+
+        // B. VIA NO AUTORIZADA (Línea negra continua con cruces rojas)
+        if (viaNoAutorizadaRes.ok) {
+          const unauthData = await viaNoAutorizadaRes.json();
+          unauthData.features.forEach((feat, index) => {
+            const props = feat.properties || {};
+            const rawCoords = feat.geometry.type === 'MultiLineString' 
+              ? feat.geometry.coordinates 
+              : [feat.geometry.coordinates];
+
+            rawCoords.forEach((line) => {
+              const latlngs = line.map(c => [c[1], c[0]]);
+              if (!latlngs.length) return;
+
+              // Línea negra continua de fondo
+              const polyline = L.polyline(latlngs, {
+                color: '#0f172a',
+                weight: 3.2,
+                opacity: 0.95,
+                lineCap: 'round',
+                lineJoin: 'round',
+                riseOnHover: true
+              }).addTo(viaNoAutorizadaLayer);
+
+              // Decorador con cruces rojas acorde a la simbología de la imagen
+              if (typeof L.polylineDecorator === 'function') {
+                const decorator = L.polylineDecorator(latlngs, {
+                  patterns: [
+                    {
+                      offset: 14,
+                      repeat: 26,
+                      symbol: L.Symbol.marker({
+                        rotate: false,
+                        markerOptions: {
+                          icon: L.divIcon({
+                            className: 'unauth-cross-icon',
+                            html: '<span class="unauth-cross-char">✕</span>',
+                            iconSize: [12, 12],
+                            iconAnchor: [6, 6]
+                          })
+                        }
+                      })
+                    }
+                  ]
+                });
+                viaNoAutorizadaLayer.addLayer(decorator);
+              } else {
+                L.polyline(latlngs, {
+                  color: '#ef4444',
+                  weight: 4,
+                  dashArray: '3, 9',
+                  opacity: 1
+                }).addTo(viaNoAutorizadaLayer);
+              }
+
+              // Etiquetas legibles acordes a la captura de ArcGIS
+              const midIdx = Math.floor(latlngs.length / 2);
+              const midPoint = latlngs[midIdx];
+              const labelMarker = L.marker(midPoint, {
+                icon: L.divIcon({ className: '', html: '', iconSize: [0, 0] }),
+                interactive: false
+              });
+              const labelText = index === 0 ? 'Via Uribia - Wimpeshi' : 'Vía No Autorizada';
+              labelMarker.bindTooltip(labelText, {
+                permanent: true,
+                direction: 'top',
+                offset: [0, -6],
+                className: 'road-name-label unauth-road-label',
+                opacity: 1
+              });
+              roadLabelMarkers.push({ marker: labelMarker });
+              viaNoAutorizadaLayer.addLayer(labelMarker);
+
+              const roadName = index === 0 ? 'Vía no autorizada (Ramal Wimpeshi)' : 'Vía no autorizada (Tramo de acceso)';
+              const featureObj = {
+                name: roadName,
+                coordinates: [midPoint[1], midPoint[0]],
+                attributes: [
+                  ['Estado', '🚨 No Autorizada'],
+                  ['Observación', props.Observ || 'Vía no autorizada'],
+                  ['Longitud', props.Shape_Leng ? `${(Number(props.Shape_Leng)/1000).toFixed(2)} km` : 'Sin dato']
+                ]
+              };
+
+              polyline.on('click', (e) => {
+                if (e && e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+                clearCommunityHighlight();
+                const clickCoord = e.latlng ? [e.latlng.lng, e.latlng.lat] : featureObj.coordinates;
+                featurePopup.setLatLng(e.latlng || [clickCoord[1], clickCoord[0]])
+                  .setContent(buildGisPopupContent({ ...featureObj, coordinates: clickCoord }, 'Vía no Autorizada'))
+                  .openOn(map);
+              });
+            });
+          });
+        }
+
+        // C. ACCESO WINDPESHI (Línea roja discontinua con base de contraste)
+        if (viaAccesoRes.ok) {
+          const accesoData = await viaAccesoRes.json();
+          accesoData.features.forEach((feat) => {
+            const props = feat.properties || {};
+            const rawCoords = feat.geometry.type === 'MultiLineString' 
+              ? feat.geometry.coordinates 
+              : [feat.geometry.coordinates];
+
+            rawCoords.forEach((line) => {
+              const latlngs = line.map(c => [c[1], c[0]]);
+              if (!latlngs.length) return;
+
+              // Trazo inferior oscuro para garantizar visibilidad sobre dunas y vegetación
+              L.polyline(latlngs, {
+                color: '#0f172a',
+                weight: 5.5,
+                opacity: 0.8,
+                lineCap: 'round',
+                lineJoin: 'round',
+                interactive: false
+              }).addTo(viaAccesoLayer);
+
+              // Trazo superior rojo discontinuo acorde a la imagen de ArcGIS
+              const polyline = L.polyline(latlngs, {
+                color: '#ef4444',
+                weight: 3.4,
+                dashArray: '8, 6',
+                opacity: 1,
+                lineCap: 'round',
+                lineJoin: 'round',
+                riseOnHover: true
+              }).addTo(viaAccesoLayer);
+
+              // Etiqueta en el tramo de aproximación al parque
+              const nearParkIndex = Math.min(1885, Math.max(0, latlngs.length - 25));
+              if (latlngs[nearParkIndex]) {
+                const labelMarker = L.marker(latlngs[nearParkIndex], {
+                  icon: L.divIcon({ className: '', html: '', iconSize: [0, 0] }),
+                  interactive: false
+                });
+                labelMarker.bindTooltip('Via Uribia - Wimpeshi', {
+                  permanent: true,
+                  direction: 'top',
+                  offset: [0, -6],
+                  className: 'road-name-label acceso-road-label',
+                  opacity: 1
+                });
+                roadLabelMarkers.push({ marker: labelMarker });
+                viaAccesoLayer.addLayer(labelMarker);
+              }
+
+              const midPoint = latlngs[Math.floor(latlngs.length / 2)];
+              const featureObj = {
+                name: props.PROYECTO || 'Acceso Windpeshi',
+                coordinates: [midPoint[1], midPoint[0]],
+                attributes: [
+                  ['Proyecto', props.PROYECTO || 'ADECUACIÓN VÍA URIBIA - WIMPESHI'],
+                  ['Tipo de Infraestructura', props.TIPO_INFRA || 'Vía de acceso'],
+                  ['Operador', props.OPERADOR || 'ALCALDIA DE URIBIA Y MAICAO'],
+                  ['Carácter', props.CARACTER || 'Municipal'],
+                  ['Longitud Total', props.LONGITUD_M ? `${(Number(props.LONGITUD_M)/1000).toFixed(2)} km` : '36.6 km'],
+                  ['Observaciones', props.OBSERV || 'Sin observaciones']
+                ]
+              };
+
+              polyline.on('click', (e) => {
+                if (e && e.originalEvent) L.DomEvent.stopPropagation(e.originalEvent);
+                clearCommunityHighlight();
+                const clickCoord = e.latlng ? [e.latlng.lng, e.latlng.lat] : featureObj.coordinates;
+                featurePopup.setLatLng(e.latlng || [clickCoord[1], clickCoord[0]])
+                  .setContent(buildGisPopupContent({ ...featureObj, coordinates: clickCoord }, 'Acceso Windpeshi'))
+                  .openOn(map);
+              });
+            });
+          });
+        }
+
+        updateMapLabels();
+        console.log('Capas de vías (Shapefiles) cargadas con éxito.');
+      } catch (err) {
+        console.warn('Error al cargar capas de vías:', err);
+      }
+    }
+
     function getBadgeClass(tipo) {
       if (!tipo) return 'badge-otro';
       if (tipo.includes('Bloqueo')) return 'badge-bloqueo';
@@ -1677,6 +2015,7 @@
     }
     cargarPuntosNube();
     loadGisLayers();
+    loadRoadLayers();
 
     // --- MANEJO DE FOTOS Y PREVISUALIZACIÓN ---
     let selectedFiles = [];
