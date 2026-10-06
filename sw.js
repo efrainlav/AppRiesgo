@@ -1,4 +1,4 @@
-const CACHE_NAME = 'guajira-offline-v8';
+const CACHE_NAME = 'guajira-offline-v9';
 const TILES_CACHE_NAME = 'guajira-tiles-v1';
 
 const urlsToCache = [
@@ -56,7 +56,34 @@ self.addEventListener('fetch', event => {
 
   const url = event.request.url;
 
-  // 1. Manejo específico de mosaicos de mapa (Google Satellite / Hybrid, Esri, Bing)
+  // 1. Manejo de navegación / páginas HTML: ESTRATEGIA NETWORK-FIRST
+  // Siempre intentar traer la última versión desde Netlify si hay conexión disponible.
+  // Si no hay red (modo offline en campo de La Guajira), usar la versión almacenada en caché.
+  const isHtml = event.request.mode === 'navigate' || 
+                 event.request.destination === 'document' ||
+                 url.endsWith('/index.html') ||
+                 url === self.location.origin ||
+                 url === self.location.origin + '/' ||
+                 (event.request.headers.get('accept') && event.request.headers.get('accept').includes('text/html'));
+
+  if (isHtml) {
+    event.respondWith(
+      fetch(event.request)
+        .then(networkResponse => {
+          if (networkResponse && networkResponse.status === 200) {
+            const clone = networkResponse.clone();
+            caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
+          }
+          return networkResponse;
+        })
+        .catch(() => {
+          return caches.match(event.request).then(cached => cached || caches.match('/index.html') || caches.match('/'));
+        })
+    );
+    return;
+  }
+
+  // 2. Manejo específico de mosaicos de mapa (Google Satellite / Hybrid, Esri, Bing, OSM)
   const isMapTile = url.includes('google.com/vt') || 
                     url.includes('virtualearth.net/tiles') || 
                     url.includes('arcgisonline.com') ||
@@ -79,18 +106,17 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // 2. Manejo de recursos estáticos, HTML, CSS, JS y KMLs
+  // 3. Manejo de recursos estáticos, librerías, KMLs, GeoJSONs, SVGs (Cache-First con respaldo de red)
   event.respondWith(
     caches.match(event.request).then(cachedResponse => {
       if (cachedResponse) return cachedResponse;
       return fetch(event.request).then(networkResponse => {
-        // Cachear dinámicamente si es un KML, SVG o archivo estático
-        if (networkResponse && networkResponse.status === 200 && (url.includes('/kml/') || url.includes('/svg/') || url.endsWith('.html') || url.endsWith('.js') || url.endsWith('.css'))) {
+        if (networkResponse && networkResponse.status === 200) {
           const clone = networkResponse.clone();
           caches.open(CACHE_NAME).then(c => c.put(event.request, clone));
         }
         return networkResponse;
       });
-    }).catch(() => caches.match('/index.html'))
+    })
   );
 });

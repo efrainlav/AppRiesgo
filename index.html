@@ -1041,9 +1041,21 @@
   <script src="./js/leaflet.polylineDecorator.min.js"></script>
 
   <script>
-    // --- REGISTRO DEL SERVICE WORKER (OFFLINE) ---
+    // --- REGISTRO DEL SERVICE WORKER (OFFLINE & AUTO-UPDATE) ---
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(err => console.log('SW falló:', err));
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        // Chequear inmediatamente si hay una versión nueva en el servidor
+        reg.update();
+      }).catch(err => console.log('SW falló:', err));
+
+      // Si una versión nueva del SW se activa, recargar automáticamente una sola vez
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          window.location.reload();
+        }
+      });
     }
 
     // --- CONFIGURACIÓN SUPABASE ---
