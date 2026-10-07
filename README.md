@@ -74,24 +74,17 @@ La plataforma fue concebida para operar en condiciones extremas de conectividad 
 
 ```text
 ├── index.html                   # Aplicación principal (interfaz, lógica de mapa y formularios)
-├── sw.js                        # Service Worker (gestión de caché offline y tiles)
+├── sw.js                        # Service Worker (gestión de caché offline, PWA y tiles)
 ├── _headers                     # Configuración de cabeceras HTTP y caché para Netlify
 ├── README.md                    # Documentación del proyecto
 ├── dm_causalidad.xlsx           # Diccionario de datos y matriz de riesgos
+├── data/
+│   └── layers.bin               # Contenedor seguro y ofuscado de capas SIG (KML, KMZ, GeoJSON)
 ├── js/
 │   ├── leaflet.polylineDecorator.min.js  # Decorador para simbología de vías
 │   └── leaflet.textpath.min.js          # Utilidad de texto sobre líneas
-├── kml/                         # Capas geográficas en formato KML/KMZ
-│   ├── Aeros_Parque.kml
-│   ├── Area_Parque.kml
-│   ├── Comunidades_2026.kmz
-│   ├── Ocupacion_Cauce_Linea.kml
-│   ├── Ocupaciones_Cauce_Parque.kml
-│   └── Torres.kml
-├── shp/                         # Capas de vías y accesos (GeoJSON y fuentes SHP)
-│   ├── Via_Acceso_Windpeshi.geojson
-│   ├── Via_No_Autorizada.geojson
-│   └── Vias_Medicion.geojson
+├── scripts/
+│   └── pack_layers.py           # Herramienta para empaquetar capas locales en layers.bin
 └── svg/                         # Simbología SVG personalizada
     ├── eolica.svg
     ├── hut.svg

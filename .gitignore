@@ -2,3 +2,8 @@
 Thumbs.db
 node_modules/
 .netlify/
+
+# Capas originales protegidas (se sirven exclusivamente mediante data/layers.bin)
+*.zip
+kml/
+shp/

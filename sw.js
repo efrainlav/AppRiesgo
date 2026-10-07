@@ -1,4 +1,4 @@
-const CACHE_NAME = 'guajira-offline-v10';
+const CACHE_NAME = 'guajira-offline-v11';
 const TILES_CACHE_NAME = 'guajira-tiles-v1';
 
 const urlsToCache = [
@@ -13,15 +13,7 @@ const urlsToCache = [
   '/svg/transmission-tower.svg',
   '/svg/eolica.svg',
   '/svg/hut.svg',
-  '/kml/Torres.kml',
-  '/kml/Aeros_Parque.kml',
-  '/kml/Area_Parque.kml',
-  '/kml/Comunidades_2026.kmz',
-  '/kml/Ocupacion_Cauce_Linea.kml',
-  '/kml/Ocupaciones_Cauce_Parque.kml',
-  '/shp/Vias_Medicion.geojson',
-  '/shp/Via_No_Autorizada.geojson',
-  '/shp/Via_Acceso_Windpeshi.geojson'
+  '/data/layers.bin'
 ];
 
 self.addEventListener('install', event => {
